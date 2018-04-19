@@ -4,33 +4,24 @@ using UnityEngine;
 
 public class Map : MonoBehaviour {
 
-	public int width = 5;
-	public int height = 5;
+	public float edgeSize = 0.1f;
 
-	public GameObject floor;
-	public GameObject obstacle;
+	public GameObject cellPrefab;
+	public GameObject edgePrefab;
 
-	public List<Cell> cells = new List<Cell>();
 	public Graph graph = new Graph();
-	public List<GameObject> cellObjects = new List<GameObject>();
 
-	private float cellSize;
+	private Transform cellsContainer;
+	private Transform edgesContainer;
+
+	private float edgePrefabLength = 1f;
 
 	void Start(){
-		cellSize = floor.GetComponent<SpriteRenderer>().size.x * 1.1f;
+		edgePrefabLength = edgePrefab.GetComponent<SpriteRenderer>().size.x;
 
-		InitMaps(width, height);
+		Timer.Play(InitMaps);
 
-		List<GraphEdge> path;
-		GraphSearch.AStar(graph, graph.GetNode(0), graph.GetNode(99), Heuristic, out path);
-		float cost = 0;
-		foreach(GraphEdge e in path){
-			Debug.Log(e.from.index + " - " + e.to.index);
-			cost += e.cost;
-
-			cellObjects[e.from.index].GetComponent<SpriteRenderer>().color = Color.red;
-		}
-		Debug.Log("Total Cost: " + cost);
+		Debug.Log(graph.nodes.Count);
 	}
 
 	private float Heuristic(GraphNode a, GraphNode b){
@@ -40,58 +31,151 @@ public class Map : MonoBehaviour {
 		return Mathf.Abs(c1.position.x - c2.position.x) + Mathf.Abs(c1.position.y - c2.position.y);
 	}
 
-	private void InitMaps(int width, int height){
-		// Add cells
-		for(int i = 0; i < height; i++){
-			for(int j = 0; j < width; j++){
-				Cell newCell = new Cell(i * width + j, new Vector2(j, i) * cellSize, false);
-				cells.Add(newCell);
-			}
+	private void InitMaps(){
+		// Initialize containers
+		InitContainers();
+
+		Queue<Cell> candidateCells = new Queue<Cell>();
+
+		// Starting point
+		Vector2 point = transform.position;
+		Cell newCell;
+		int cellIndex = 0;
+
+		// Check starting point
+		if(!CheckPointInObstacle(point)){
+			newCell = new Cell(cellIndex, point);
+			graph.AddNode(newCell);
+			candidateCells.Enqueue(newCell);
+			cellIndex++;
+		}else{
+			return;
 		}
 
+		// Extend edges and nodes
+		while(candidateCells.Count > 0){
+			Cell candidate = candidateCells.Dequeue();
+
+			// Left
+			point = candidate.position + new Vector2(-edgeSize, 0);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex);
+			// Right
+			point = candidate.position + new Vector2(edgeSize, 0);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex);
+			// Top
+			point = candidate.position + new Vector2(0, edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex);
+			// Bottom
+			point = candidate.position + new Vector2(0, -edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex);
+
+			// Left Top
+			point = candidate.position + new Vector2(-edgeSize, edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex, 1.414f);
+
+			// Left Bottom
+			point = candidate.position + new Vector2(-edgeSize, -edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex, 1.414f);
+
+			// Right Top
+			point = candidate.position + new Vector2(edgeSize, edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex, 1.414f);
+
+			// Right Bottom
+			point = candidate.position + new Vector2(edgeSize, -edgeSize);
+			ExtendEdgeAndNode(point, candidate, candidateCells, ref cellIndex, 1.414f);
+		}
+
+		// Draw cells
+		DrawCell(graph.nodes);
+
+		// Draw edges
+		DrawEdge(graph.edges);
+	}
+
+	private void ExtendEdgeAndNode(Vector2 point, Cell candidate, Queue<Cell> candidateCells, ref int cellIndex, float cost=1){
+		if(CheckLineInObstacle(candidate.position, point))
+			return;
+
+		Cell cell = CheckPointAlreadyCreated(point);
+		if(cell == null){
+			cell = new Cell(cellIndex, point);
+			graph.AddNode(cell);
+			candidateCells.Enqueue(cell);
+			cellIndex++;
+
+			graph.AddEdge(candidate, cell);
+		}else{
+			graph.AddEdge(candidate, cell);
+		}
+	}
+
+	private Cell CheckPointAlreadyCreated(Vector2 point){
+		foreach(Cell c in graph.nodes){
+			if((c.position - point).magnitude < edgeSize * 0.5f)
+				return c;
+		}
+
+		return null;
+	}
+
+	private bool CheckPointInObstacle(Vector2 point){
+		foreach(Collider2D ob in GameManager.obstacles){
+			if(ob.bounds.Contains(point))
+				return true;
+		}
+
+		return false;
+	}
+
+	private bool CheckLineInObstacle(Vector2 from, Vector2 to){
+		if(from == to)
+			return false;
+
+		RaycastHit2D ray = Physics2D.Raycast(from, to - from, (to - from).magnitude);
+		
+		if(ray.collider == null)
+			return false;
+		else
+			return true;
+	}
+
+	private void InitContainers(){
+		cellsContainer = new GameObject().transform;
+		cellsContainer.name = "Cells";
+		cellsContainer.parent = transform;
+
+		edgesContainer = new GameObject().transform;
+		edgesContainer.name = "Edges";
+		edgesContainer.parent = transform;
+	}
+
+	private void DrawCell(List<GraphNode> cells){
 		foreach(Cell c in cells){
-			graph.AddNode(c);
+			GameObject cell = Instantiate(cellPrefab, c.position, Quaternion.identity);
+			cell.transform.parent = cellsContainer;
 		}
+	}
 
-		// Add obstacles
-		cells[2].isObstacle = true;
-		cells[7].isObstacle = true;
-		cells[12].isObstacle = true;
-		cells[13].isObstacle = true;	
+	private void DrawEdge(List<GraphEdge> edges){
+		foreach(GraphEdge e in edges){
+			Cell c1 = (Cell)e.from;
+			Cell c2 = (Cell)e.to;
 
-		// Horizontal
-		for(int i = 0; i < height; i++){
-			for(int j = 0; j < width - 1; j++){
-				Cell c1 = cells[i * width + j];
-				Cell c2 = cells[i * width + j + 1];
-				if(!c1.isObstacle && !c2.isObstacle){
-					graph.AddEdge(c1, c2);
-					graph.AddEdge(c2, c1);
-				}
-			}
+			Vector2 position = (c1.position + c2.position) * 0.5f;
+			Quaternion rotation = Quaternion.Euler(0, 0, Vector2Angle(c2.position - c1.position));
+
+			GameObject edge = Instantiate(edgePrefab, position, rotation);
+			edge.transform.parent = edgesContainer;
+
+			float edgeLength = (c2.position - c1.position).magnitude;
+			edge.transform.localScale += new Vector3(edgeLength / edgePrefabLength - 1, 0, 0);
 		}
-		// Vertical
-		for(int i = 0; i < width; i++){
-			for(int j = 0; j < height - 1; j++){
-				Cell c1 = cells[j * width + i];
-				Cell c2 = cells[(j + 1) * width + i];
-				if(!c1.isObstacle && !c2.isObstacle){
-					graph.AddEdge(c1, c2);
-					graph.AddEdge(c2, c1);
-				}
-			}
-		}	
+	}
 
-		// Draw
-		foreach(Cell c in cells){
-			GameObject cell;
-			if(!c.isObstacle)
-				cell = Instantiate(floor, c.position, Quaternion.identity);
-			else
-				cell = Instantiate(obstacle, c.position, Quaternion.identity);
+	private float Vector2Angle(Vector2 v){
+		float rad = Mathf.Atan2(v.y, v.x);
 
-			cell.transform.parent = transform;
-			cellObjects.Add(cell);
-		}
+		return Mathf.Rad2Deg * rad;
 	}
 }

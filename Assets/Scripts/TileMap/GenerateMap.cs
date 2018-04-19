@@ -40,7 +40,7 @@ public class GenerateMap : MonoBehaviour {
 		// Add cells
 		for(int i = 0; i < height; i++){
 			for(int j = 0; j < width; j++){
-				Cell newCell = new Cell(i * width + j, new Vector2(j, i) * cellSize, false);
+				Cell newCell = new Cell(i * width + j, new Vector2(j, i) * cellSize);
 				cells.Add(newCell);
 			}
 		}
@@ -54,10 +54,8 @@ public class GenerateMap : MonoBehaviour {
 			for(int j = 0; j < width - 1; j++){
 				Cell c1 = cells[i * width + j];
 				Cell c2 = cells[i * width + j + 1];
-				if(!c1.isObstacle && !c2.isObstacle){
-					graph.AddEdge(new MazeEdge(c1, c2, true));
-					graph.AddEdge(new MazeEdge(c2, c1, true));
-				}
+				graph.AddEdge(new MazeEdge(c1, c2, true));
+				graph.AddEdge(new MazeEdge(c2, c1, true));
 			}
 		}
 		// Vertical
@@ -65,10 +63,8 @@ public class GenerateMap : MonoBehaviour {
 			for(int j = 0; j < height - 1; j++){
 				Cell c1 = cells[j * width + i];
 				Cell c2 = cells[(j + 1) * width + i];
-				if(!c1.isObstacle && !c2.isObstacle){
-					graph.AddEdge(new MazeEdge(c1, c2, true));
-					graph.AddEdge(new MazeEdge(c2, c1, true));
-				}
+				graph.AddEdge(new MazeEdge(c1, c2, true));
+				graph.AddEdge(new MazeEdge(c2, c1, true));
 			}
 		}	
 	}

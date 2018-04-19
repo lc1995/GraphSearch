@@ -122,6 +122,7 @@ public class GraphSearch{
 	}
 
 
+	/// Delegate Heuristic
 	public delegate float Heuristic(GraphNode s, GraphNode t);
 	/// <summary>
 	/// AStar
@@ -129,6 +130,9 @@ public class GraphSearch{
 	public static bool AStar(Graph g, GraphNode s, GraphNode t, Heuristic heuristic, out List<GraphEdge> result){
 		List<GraphEdge> path = new List<GraphEdge>();
 		result = path;
+
+		if(s == t)
+			return true;
 
 		Dictionary<GraphNode, GraphNode> nodesFrom = InitNodeTagFrom(g);
 		Dictionary<GraphNode, float> nodesCost = InitNodeTagCost(g);
@@ -168,6 +172,7 @@ public class GraphSearch{
 		return true;
 	}
 
+	#region axuliary functions
 	/// <summary>
 	/// Tag each node with tag representing visited or not.
 	/// </summary>
@@ -245,4 +250,5 @@ public class GraphSearch{
 
 		return minNode;
 	}
+	#endregion
 }

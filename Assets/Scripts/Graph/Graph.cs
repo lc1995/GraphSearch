@@ -46,7 +46,7 @@ public class Graph{
 		if(GetNode(node.index) == null)
 			nodes.Add(node);
 		else
-			Debug.LogWarning("Node " + node.index + " is already been added.");	
+			Debug.LogWarning("Node " + node.index + " has already been added.");	
 	}
 	public void AddNode(int index){
 		AddNode(new GraphNode(index));
@@ -59,10 +59,13 @@ public class Graph{
 		if(GetEdge(edge.from.index, edge.to.index) == null)
 			edges.Add(edge);
 		else
-			Debug.LogWarning("Edge " + edge.from.index + " - " + edge.to.index + " is already been added.");
+			Debug.LogWarning("Edge " + edge.from.index + " - " + edge.to.index + " has already been added.");
 	}
 	public void AddEdge(GraphNode n1, GraphNode n2, float cost=1f){
-		AddEdge(new GraphEdge(n1, n2, cost));
+		if(GetEdge(n1.index, n2.index) == null)
+			edges.Add(new GraphEdge(n1, n2, cost));
+		else
+			Debug.LogWarning("Edge " + n1.index + " - " + n2.index + " has already been added.");
 	}
 	public void AddEdge(int n1i, int n2i, float cost=1f){
 		GraphNode n1 = GetNode(n1i);
@@ -88,11 +91,21 @@ public class Graph{
 	/// Get an edge from the graph by two indexes
 	/// </summary>
 	public GraphEdge GetEdge(int from, int to){
-		foreach(GraphEdge e in edges){
-			if(e.from.index == from && e.to.index == to)
+		GraphNode fromNode = GetNode(from);
+		GraphNode toNode = GetNode(to);
+		if(fromNode == null || toNode == null)
+			return null;
+
+		return GetEdge(fromNode, toNode);
+	}	
+	/// <summary>
+	/// Get an edge from the graph by two nodes
+	/// </summary>
+	public GraphEdge GetEdge(GraphNode from, GraphNode to){
+		foreach(GraphEdge e in from.edges){
+			if(e.to == to)
 				return e;
 		}
-
 		return null;
 	}
 
@@ -108,19 +121,11 @@ public class Graph{
 
 		return es;
 	}
-
 	/// <summary>
 	/// Get edges from the graph by the target's node
 	/// </summary>
 	public List<GraphEdge> GetEdgesWithTo(GraphNode to){
 		return GetEdgesWithTo(to.index);
-	}
-
-	/// <summary>
-	/// Get an edge from the graph by two nodes
-	/// </summary>
-	public GraphEdge GetEdge(GraphNode from, GraphNode to){
-		return GetEdge(from.index, to.index);
 	}
 
 	/// <summary>
